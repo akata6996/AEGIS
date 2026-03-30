@@ -17,7 +17,7 @@
    source .venv/bin/activate
    pip install -e .[dev]
    cp ../.env.example .env
-   python scripts_init_db.py
+   ./scripts/dev_up.sh --no-run
    ```
 4. Configure power: use official/recommended 5V/5A USB-C PSU for Pi 5.
 5. Enable service with systemd unit `deploy/aegis-gateway.service`.

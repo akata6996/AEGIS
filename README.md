@@ -26,6 +26,20 @@ python scripts_init_db.py
 uvicorn app.main:app --reload
 ```
 
+
+## One-command developer bootstrap
+```bash
+cd gateway
+./scripts/dev_up.sh --no-run   # prepare env only
+./scripts/dev_up.sh            # prepare env + start server
+```
+
+Optional validation helper:
+```bash
+cd gateway
+./scripts/dev_check.sh
+```
+
 ## Current milestone
 Phase 1–8 implementation in progress (current baseline):
 - clean module boundaries
