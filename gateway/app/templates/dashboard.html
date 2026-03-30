@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>AEGIS Operator Console</h1>
+    <p>Acquisition-time enforcement observability and controls</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>System Overview</h2>
+      <button onclick="loadOverview()">Refresh Overview</button>
+      <pre id="overview">Loading...</pre>
+    </section>
+
+    <section class="panel grid2">
+      <div>
+        <h2>Pipeline Controls</h2>
+        <button onclick="runBatch()">Run Merkle Batch</button>
+        <button onclick="runAnchor()">Run Next Anchor Attempt</button>
+        <pre id="pipelineResult">No action yet.</pre>
+      </div>
+      <div>
+        <h2>Operator Session Reset</h2>
+        <form id="resetForm">
+          <label>Node ID <input name="node_id" required /></label>
+          <label>New Expected Seq <input name="new_expected_seq" type="number" min="0" required /></label>
+          <label>Reason <input name="reason" required /></label>
+          <label>Operator ID <input name="operator_id" required /></label>
+          <button type="submit">Reset Session</button>
+        </form>
+        <pre id="resetResult">No reset submitted.</pre>
+      </div>
+    </section>
+
+    <section class="panel grid2">
+      <div>
+        <h2>Recent Rejections</h2>
+        <button onclick="loadRejections()">Refresh Rejections</button>
+        <pre id="rejections"></pre>
+      </div>
+      <div>
+        <h2>Recent Anchor Attempts</h2>
+        <button onclick="loadAnchors()">Refresh Anchors</button>
+        <pre id="anchors"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function getJson(url, options = undefined) {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    async function loadOverview() {
+      const r = await getJson('/api/v1/dashboard/overview');
+      document.getElementById('overview').textContent = JSON.stringify(r.data, null, 2);
+    }
+
+    async function loadRejections() {
+      const r = await getJson('/api/v1/dashboard/rejections/recent?limit=20');
+      document.getElementById('rejections').textContent = JSON.stringify(r.data, null, 2);
+    }
+
+    async function loadAnchors() {
+      const r = await getJson('/api/v1/dashboard/anchors/recent?limit=20');
+      document.getElementById('anchors').textContent = JSON.stringify(r.data, null, 2);
+    }
+
+    async function runBatch() {
+      const r = await getJson('/api/v1/verification/batches/run', { method: 'POST' });
+      document.getElementById('pipelineResult').textContent = JSON.stringify(r.data, null, 2);
+      await loadOverview();
+      await loadAnchors();
+    }
+
+    async function runAnchor() {
+      const r = await getJson('/api/v1/verification/anchors/run-next', { method: 'POST' });
+      document.getElementById('pipelineResult').textContent = JSON.stringify(r.data, null, 2);
+      await loadOverview();
+      await loadAnchors();
+    }
+
+    document.getElementById('resetForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.target);
+      const nodeId = form.get('node_id');
+      const payload = {
+        new_expected_seq: Number(form.get('new_expected_seq')),
+        reason: String(form.get('reason')),
+        operator_id: String(form.get('operator_id')),
+      };
+      const r = await getJson(`/api/v1/operator/sessions/${encodeURIComponent(nodeId)}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      document.getElementById('resetResult').textContent = JSON.stringify({status: r.status, body: r.data}, null, 2);
+    });
+
+    loadOverview();
+    loadRejections();
+    loadAnchors();
+  </script>
+</body>
+</html>
