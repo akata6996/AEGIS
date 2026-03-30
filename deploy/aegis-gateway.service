@@ -1,0 +1,14 @@
+[Unit]
+Description=AEGIS Gateway Service
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aegis/gateway
+EnvironmentFile=/opt/aegis/gateway/.env
+ExecStart=/opt/aegis/gateway/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
