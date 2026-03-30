@@ -22,13 +22,15 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 cp ../.env.example .env
+python scripts_init_db.py
 uvicorn app.main:app --reload
 ```
 
 ## Current milestone
-Phase 1–4 foundations:
+Phase 1–6 implemented baseline:
 - clean module boundaries
 - deterministic enforcement pipeline
 - schema-first SQLite migration
-- verification/rejection log persistence interfaces
-
+- Merkle batch generation + stored proofs
+- async-style anchor orchestration with retry logging (mock-by-default for Devnet-safe testing)
+- verification workspace APIs for chain/proof/root/anchor checks

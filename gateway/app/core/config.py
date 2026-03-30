@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     solana_devnet_rpc: str = 'https://api.devnet.solana.com'
     solana_commitment: str = 'confirmed'
+    solana_anchor_wallet_secret: str | None = None
+    solana_anchor_mock_mode: bool = True
     anchor_retry_limit: int = 5
 
     api_host: str = '0.0.0.0'

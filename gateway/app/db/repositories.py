@@ -74,6 +74,27 @@ class VerificationLogRepository:
         ).fetchone()
         return row['record_hash'] if row else None
 
+    def fetch_by_id(self, record_id: int) -> sqlite3.Row | None:
+        return self.conn.execute('SELECT * FROM verification_log WHERE id=?', (record_id,)).fetchone()
+
+    def fetch_unbatched(self) -> list[sqlite3.Row]:
+        rows = self.conn.execute(
+            'SELECT * FROM verification_log WHERE merkle_batch_id IS NULL ORDER BY id ASC'
+        ).fetchall()
+        return list(rows)
+
+    def fetch_by_batch(self, merkle_batch_id: int) -> list[sqlite3.Row]:
+        rows = self.conn.execute(
+            'SELECT * FROM verification_log WHERE merkle_batch_id=? ORDER BY id ASC', (merkle_batch_id,)
+        ).fetchall()
+        return list(rows)
+
+    def mark_batch(self, verification_log_id: int, merkle_batch_id: int) -> None:
+        self.conn.execute(
+            'UPDATE verification_log SET merkle_batch_id=? WHERE id=?',
+            (merkle_batch_id, verification_log_id),
+        )
+
     def insert_admitted(
         self,
         node_id: str,
@@ -149,3 +170,115 @@ class RejectionLogRepository:
             ),
         )
         return int(cur.lastrowid)
+
+
+class MerkleRepository:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self.conn = conn
+
+    def create_batch(self, batch_start_ts: str, batch_end_ts: str, leaf_count: int, merkle_root: str) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cur = self.conn.execute(
+            """
+            INSERT INTO merkle_batch_metadata(
+                batch_start_ts, batch_end_ts, leaf_count, merkle_root, status, created_at
+            ) VALUES (?, ?, ?, ?, 'pending_anchor', ?)
+            """,
+            (batch_start_ts, batch_end_ts, leaf_count, merkle_root, now),
+        )
+        return int(cur.lastrowid)
+
+    def insert_leaf(self, merkle_batch_id: int, verification_log_id: int, leaf_index: int, leaf_hash: str) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO merkle_leaves(merkle_batch_id, verification_log_id, leaf_index, leaf_hash)
+            VALUES (?, ?, ?, ?)
+            """,
+            (merkle_batch_id, verification_log_id, leaf_index, leaf_hash),
+        )
+
+    def insert_proof(self, merkle_batch_id: int, verification_log_id: int, proof_json: str) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO merkle_proofs(merkle_batch_id, verification_log_id, proof_json)
+            VALUES (?, ?, ?)
+            """,
+            (merkle_batch_id, verification_log_id, proof_json),
+        )
+
+    def fetch_batch(self, merkle_batch_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            'SELECT * FROM merkle_batch_metadata WHERE id=?', (merkle_batch_id,)
+        ).fetchone()
+
+    def fetch_latest_pending_batch(self) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM merkle_batch_metadata WHERE status='pending_anchor' ORDER BY id ASC LIMIT 1"
+        ).fetchone()
+
+    def fetch_leaf_by_record(self, verification_log_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            'SELECT * FROM merkle_leaves WHERE verification_log_id=?', (verification_log_id,)
+        ).fetchone()
+
+    def fetch_proof(self, merkle_batch_id: int, verification_log_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            'SELECT * FROM merkle_proofs WHERE merkle_batch_id=? AND verification_log_id=?',
+            (merkle_batch_id, verification_log_id),
+        ).fetchone()
+
+    def update_batch_status(self, merkle_batch_id: int, status: str) -> None:
+        self.conn.execute(
+            'UPDATE merkle_batch_metadata SET status=? WHERE id=?',
+            (status, merkle_batch_id),
+        )
+
+
+class AnchorAttemptsRepository:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self.conn = conn
+
+    def next_attempt_no(self, merkle_batch_id: int) -> int:
+        row = self.conn.execute(
+            'SELECT COALESCE(MAX(attempt_no), 0) AS last_no FROM anchor_attempts WHERE merkle_batch_id=?',
+            (merkle_batch_id,),
+        ).fetchone()
+        return int(row['last_no']) + 1
+
+    def insert_attempt(
+        self,
+        merkle_batch_id: int,
+        attempt_no: int,
+        rpc_endpoint: str,
+        request_payload_json: str,
+        response_payload_json: str | None,
+        tx_signature: str | None,
+        status: str,
+        error_message: str | None,
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            """
+            INSERT INTO anchor_attempts(
+                merkle_batch_id, attempt_no, rpc_endpoint, request_payload_json,
+                response_payload_json, tx_signature, status, error_message, attempted_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                merkle_batch_id,
+                attempt_no,
+                rpc_endpoint,
+                request_payload_json,
+                response_payload_json,
+                tx_signature,
+                status,
+                error_message,
+                now,
+            ),
+        )
+
+    def fetch_success_for_batch(self, merkle_batch_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM anchor_attempts WHERE merkle_batch_id=? AND status='success' ORDER BY id DESC LIMIT 1",
+            (merkle_batch_id,),
+        ).fetchone()

@@ -40,7 +40,17 @@ class MqttIngestionService:
         try:
             payload = json.loads(msg.payload.decode('utf-8'))
             packet = SensorPacket(**payload)
-        except Exception:
+        except Exception as exc:
+            with transaction() as conn:
+                RejectionLogRepository(conn).insert_rejection(
+                    node_id='unknown',
+                    seq_num=None,
+                    packet_timestamp=None,
+                    gateway_received_at=gateway_received_at.isoformat(),
+                    reason_code='MALFORMED_PACKET',
+                    reason_detail=str(exc),
+                    packet_canonical_json=msg.payload.decode('utf-8', errors='replace'),
+                )
             return
 
         with transaction() as conn:
