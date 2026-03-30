@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     solana_anchor_wallet_secret: str | None = None
     solana_anchor_mock_mode: bool = True
     anchor_retry_limit: int = 5
+    pipeline_worker_poll_seconds: int = 15
 
     api_host: str = '0.0.0.0'
     api_port: int = 8000

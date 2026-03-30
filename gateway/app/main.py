@@ -7,14 +7,18 @@ from app.api.routes_dashboard import router as dashboard_router
 from app.api.routes_operator import router as operator_router
 from app.api.routes_verification import router as verification_router
 from app.ingestion.mqtt_service import MqttIngestionService
+from app.workers.pipeline_worker import PipelineWorker
 
 mqtt_service = MqttIngestionService()
+pipeline_worker = PipelineWorker()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     mqtt_service.start()
+    pipeline_worker.start()
     yield
+    pipeline_worker.stop()
     mqtt_service.stop()
 
 

@@ -38,3 +38,6 @@ Phase 1–8 implementation in progress (current baseline):
 - operator session reset endpoint + reset event logging
 - repeatable threat scenario runner with latency measurements
 - deployment health checks and evidence backup/export procedures
+
+- background pipeline worker for periodic Merkle batching + non-gating anchoring
+- expanded dashboard observability endpoints for recent rejections and anchor attempts

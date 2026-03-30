@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from datetime import timedelta, timezone
 import json
 import time
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.time import utc_now
@@ -31,7 +32,10 @@ class ScenarioResult:
 
 class ThreatScenarioRunner:
     def __init__(self, db_path: str) -> None:
-        settings.db_path = db_path
+        db_file = Path(db_path)
+        if db_file.exists():
+            db_file.unlink()
+        settings.db_path = str(db_file)
         run_sql_file('migrations/0001_initial.sql')
 
     def seed_enrollment(self, node_id: str = 'node-threat') -> None:
