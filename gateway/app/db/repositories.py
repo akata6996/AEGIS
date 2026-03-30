@@ -63,6 +63,35 @@ class SessionRepository:
             (expected_next_seq, 'healthy', now, node_id),
         )
 
+    def set_requires_reset(self, node_id: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            "UPDATE session_state SET session_status='requires_reset', updated_at=? WHERE node_id=?",
+            (now, node_id),
+        )
+
+    def operator_reset(self, node_id: str, new_expected_seq: int, reason: str, operator_id: str) -> bool:
+        row = self.conn.execute(
+            'SELECT expected_next_seq FROM session_state WHERE node_id=?', (node_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        previous_expected = int(row['expected_next_seq'])
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            """
+            INSERT INTO operator_reset_events(
+                node_id, previous_expected_seq, new_expected_seq, reason, operator_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (node_id, previous_expected, new_expected_seq, reason, operator_id, now),
+        )
+        self.conn.execute(
+            "UPDATE session_state SET expected_next_seq=?, session_status='healthy', updated_at=? WHERE node_id=?",
+            (new_expected_seq, now, node_id),
+        )
+        return True
+
 
 class VerificationLogRepository:
     def __init__(self, conn: sqlite3.Connection) -> None:

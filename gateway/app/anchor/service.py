@@ -47,7 +47,13 @@ class AnchorOrchestrator:
                 error_message=result.error,
             )
 
-            merkle_repo.update_batch_status(batch_id, 'anchored' if result.success else 'anchor_failed')
+            if result.success:
+                merkle_repo.update_batch_status(batch_id, 'anchored')
+            elif attempt_no >= settings.anchor_retry_limit:
+                merkle_repo.update_batch_status(batch_id, 'anchor_failed')
+            else:
+                merkle_repo.update_batch_status(batch_id, 'pending_anchor')
+
             return AnchorExecutionResult(True, batch_id, result.success, result.tx_signature, result.error)
 
     def anchor_next_pending_batch_dict(self) -> dict:

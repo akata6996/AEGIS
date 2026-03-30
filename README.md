@@ -27,10 +27,14 @@ uvicorn app.main:app --reload
 ```
 
 ## Current milestone
-Phase 1–6 implemented baseline:
+Phase 1–8 implementation in progress (current baseline):
 - clean module boundaries
 - deterministic enforcement pipeline
 - schema-first SQLite migration
 - Merkle batch generation + stored proofs
 - async-style anchor orchestration with retry logging (mock-by-default for Devnet-safe testing)
 - verification workspace APIs for chain/proof/root/anchor checks
+
+- operator session reset endpoint + reset event logging
+- repeatable threat scenario runner with latency measurements
+- deployment health checks and evidence backup/export procedures
